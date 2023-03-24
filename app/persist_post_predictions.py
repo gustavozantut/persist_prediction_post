@@ -1,65 +1,59 @@
 import json
 import requests
+import os
 import time
-import inotify.adapters
+from pathlib import Path
+import shutil
 
 def main():
+    server_url = "json_server/plate_pred"
+    category = 'placa_carro'
+    detect_dir = Path('/detect')
+    latest_detection = sorted(detect_dir.glob('*'), key=lambda x: x.stat().st_mtime, reverse=True)[0].name
+    pred_files_dir = Path('/logs') / latest_detection / 'processed_plates' / category
+    logs_dir = Path('/logs') / latest_detection / 'posted_plates' / category
+    logs_dir.mkdir(exist_ok=True)
+    posted_plates_log_file = logs_dir / 'posted_plates.log'
     
-    # Initialize an empty list for the plate predictions
-    plate_pred = []
-    id_count = 1
-    filename = None
+    if not posted_plates_log_file.exists():
+        posted_plates_log_file.touch()
+    
+    while not os.path.exists(detect_dir):
+        time.sleep(0.5)
+    id=1
+    while True:
+        # Get a list of all files in the log directory
+        log_files = os.listdir(pred_files_dir)
 
-    # Initialize inotify
-    i = inotify.adapters.Inotify()
+        for log_file in sorted(log_files):
+            log_path = Path(pred_files_dir) / log_file
+            
+            # Read the contents of the log file as a JSON object
+            with open(log_path) as f:
+                log_data = json.load(f)
+            if not log_data['results']:
+                os.remove(log_path)
+                continue
+            # Add the filename to the JSON object
+            log_data["id"] = id
+            log_data["filename"] = log_file
+            log_data["category"] = category
+            
+            # Post the JSON object to the server
+            response = requests.post(server_url, json=log_data)
 
-    # Add the log file to watch for modification events
-    i.add_watch('/logs/', mask=inotify.constants.IN_MODIFY)
-
-    # Keep looping and processing events
-    for event in i.event_gen(yield_nones=False):
-        (_, type_names, path, filename) = event
-
-        # If the event type is a modification and the filename matches the log file, process the new lines
-        if 'IN_MODIFY' in type_names and 'alpr_' in filename:
-            with open(path + filename, 'r') as f_in, open('/tf/GitHub/Toll/runs/detect/yolo_alpr_det/crops/placa_carro/logs/output.json', 'w') as f_out:
-                # Process the new lines in the log file
-                for line in f_in:
-                    # If line starts with ".", it is a file path, so extract the filename
-                    if line.startswith('.'):
-                        filename = line.replace(".","").replace("/","").strip()
-
-                    # Otherwise, it is a JSON string, so parse it and extract the necessary information
-                    else:
-                        data = json.loads(line)
-                        if data['results']:
-                            result = data['results']
-                            plate_pred.append({
-                                'id':id_count,
-                                'date':time.strftime("%Y%m%d%H%M%S"),
-                                'file': filename,
-                                'version': data['version'],
-                                'data_type': data['data_type'],
-                                'epoch_time': data['epoch_time'],
-                                'img_width': data['img_width'],
-                                'img_height': data['img_height'],
-                                'processing_time_ms': data['processing_time_ms'],
-                                'regions_of_interest': data['regions_of_interest'],
-                                'results': result,
-                            })
-                            id_count+=1
-                            # Write the plate predictions to the output file as a JSON object
-                            url = 'http://host.docker.internal:8081/plate_pred'
-                            headers = {'Content-Type': 'application/json'}
-                            response = requests.post(url, headers=headers, json=plate_pred[0])
-                            while response.status_code != 201:
-                                print(f"Failed to post data to {url}. Status code: {response.status_code}")
-                                response
-                            # Write the plate predictions to the output file as a JSON object
-                            json.dump({'plate_pred': plate_pred}, f_out)
-                            f_out.write('\n')
-
-                            # Clear the plate predictions list for the next iteration
-                            plate_pred = []
+            while not response.ok:
+                # Move the file to the posted directory if the post was successful
+                response = requests.post(server_url, json=log_data)
+                
+            shutil.move(log_path, pred_files_dir / 'posted_files' / log_file)
+        else:
+            # Wait for some time before checking for new files again
+            time.sleep(1)
+            new_files = sorted(os.listdir(pred_files_dir))
+            if new_files != files:
+                    #logging.info("New files detected. Processing...")
+                    files = new_files
 if __name__ == '__main__':
+    time.sleep(5)
     main()
