@@ -32,7 +32,10 @@ def main():
     server_url = 'http://json_server/plate_pred'
     category = 'placa_carro'
     detect_dir = Path('/detect')
-    latest_detection = sorted(detect_dir.glob('*'), key=lambda x: x.stat().st_mtime, reverse=True)[0].name
+    old_det_dir = detect_dir / 'old'
+    while not [item for item in detect_dir.glob('*') if not os.path.samefile(item, old_det_dir) and not os.path.commonpath([item, old_det_dir]) == old_det_dir]:
+        time.sleep(0.5)
+    latest_detection = sorted([item for item in detect_dir.glob('*') if not os.path.samefile(item, old_det_dir) and not os.path.commonpath([item, old_det_dir]) == old_det_dir], key=lambda x: x.stat().st_mtime, reverse=True)[0].name
     pred_files_dir = Path('/logs') / latest_detection / 'processed_plates' / category
     logs_dir = Path('/logs') / latest_detection / 'posted_plates' / category
     os.makedirs(logs_dir, exist_ok=True)
@@ -85,5 +88,4 @@ def main():
                     log_files = new_files
 if __name__ == '__main__':
     clean_json_file()
-    time.sleep(15)
     main()
