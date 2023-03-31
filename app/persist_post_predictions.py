@@ -81,7 +81,7 @@ def main():
             time.sleep(0.5)
             new_files = sorted(os.listdir(pred_files_dir))
             if new_files != log_files:
-                    ##logging.info("New files detected. Processing...")
+                    #logging.info("New files detected. Processing...")
                     log_files = new_files
 if __name__ == '__main__':
     clean_json_file()
