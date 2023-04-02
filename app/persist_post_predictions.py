@@ -10,7 +10,7 @@ from datetime import datetime
 
 
 def clean_json_file():
-    now=datetime.now().replace(" ","").replace(":","").replace(".","").replace("-","")
+    now=str(datetime.now()).replace(" ","").replace(":","").replace(".","").replace("-","")
     data = {
         "plate_pred": [
             {
@@ -31,7 +31,7 @@ def clean_json_file():
     }
     shutil.move(
         "/json_source/db.json",
-        f"/json_source/db{now}.json",
+        f"/json_source/db_{now}.json",
     )
     with open("/json_source/db.json", "w") as f:
         json.dump(data, f)
