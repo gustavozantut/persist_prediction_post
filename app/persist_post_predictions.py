@@ -8,6 +8,7 @@ from json.decoder import JSONDecodeError
 import logging
 from datetime import datetime
 
+
 def clean_json_file():
     data = {
         "plate_pred": [
@@ -28,9 +29,9 @@ def clean_json_file():
         ]
     }
     shutil.move(
-                    "/json_source/db.json",
-                    f"/json_source/db{datetime.now()}.json",
-                )
+        "/json_source/db.json",
+        f"/json_source/db{datetime.now()}.json",
+    )
     with open("/json_source/db.json", "w") as f:
         json.dump(data, f)
 
@@ -44,7 +45,7 @@ def main():
         "placa_moto_mercosul",
     ]
     processed_plates_dir = Path("/logs") / latest_detection / "processed_plates"
-    posted_plates_dir=Path("/logs") / latest_detection / "posted_plates"
+    posted_plates_dir = Path("/logs") / latest_detection / "posted_plates"
     detect_dir = Path("/detect")
     old_det_dir = detect_dir / "old"
     while not [
@@ -65,14 +66,10 @@ def main():
         reverse=True,
     )[0].name
 
-    pred_files_dir_placa_carro = (
-        processed_plates_dir / categories[0]
-    )
+    pred_files_dir_placa_carro = processed_plates_dir / categories[0]
 
     for category in categories:
-        os.makedirs(
-            posted_plates_dir / category, exist_ok=True
-        )
+        os.makedirs(posted_plates_dir / category, exist_ok=True)
 
     while not os.path.exists(pred_files_dir_placa_carro):
         time.sleep(0.5)
@@ -90,9 +87,7 @@ def main():
             logs_dict[category] = sorted(
                 [
                     f
-                    for f in os.listdir(
-                        processed_plates_dir / category
-                    )
+                    for f in os.listdir(processed_plates_dir / category)
                     if f.endswith(".log")
                 ]
             )
@@ -102,11 +97,7 @@ def main():
             continue
         for category, log_file_list in logs_dict.items():
             for log_file in log_file_list:
-                log_path = (
-                    processed_plates_dir
-                    / category
-                    / log_file
-                )
+                log_path = processed_plates_dir / category / log_file
                 # logging.info(log_path)
 
                 # Read the contents of the log file as a JSON object
@@ -136,9 +127,7 @@ def main():
                 id += 1
                 shutil.move(
                     log_path,
-                    posted_plates_dir
-                    / category
-                    / log_file,
+                    posted_plates_dir / category / log_file,
                 )
 
 
