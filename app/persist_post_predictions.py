@@ -6,7 +6,7 @@ from pathlib import Path
 import shutil
 from json.decoder import JSONDecodeError
 import logging
-
+from datetime import datetime
 
 def clean_json_file():
     data = {
@@ -27,6 +27,10 @@ def clean_json_file():
             }
         ]
     }
+    shutil.move(
+                    "/json_source/db.json",
+                    f"/json_source/db{datetime.now()}.json",
+                )
     with open("/json_source/db.json", "w") as f:
         json.dump(data, f)
 
@@ -39,6 +43,8 @@ def main():
         "placa_moto",
         "placa_moto_mercosul",
     ]
+    processed_plates_dir = Path("/logs") / latest_detection / "processed_plates"
+    posted_plates_dir=Path("/logs") / latest_detection / "posted_plates"
     detect_dir = Path("/detect")
     old_det_dir = detect_dir / "old"
     while not [
@@ -60,12 +66,12 @@ def main():
     )[0].name
 
     pred_files_dir_placa_carro = (
-        Path("/logs") / latest_detection / "processed_plates" / categories[0]
+        processed_plates_dir / categories[0]
     )
 
     for category in categories:
         os.makedirs(
-            Path("/logs") / latest_detection / "posted_plates" / category, exist_ok=True
+            posted_plates_dir / category, exist_ok=True
         )
 
     while not os.path.exists(pred_files_dir_placa_carro):
@@ -74,10 +80,10 @@ def main():
     id = 1
     while True:
         logs_dict = {
-            "placa_carro": [],
-            "placa_carro_mercosul": [],
-            "placa_moto": [],
-            "placa_moto_mercosul": [],
+            categories[0]: [],
+            categories[1]: [],
+            categories[2]: [],
+            categories[3]: [],
         }
         for category in categories:
             # Get a list of all files in the log directory
@@ -85,7 +91,7 @@ def main():
                 [
                     f
                     for f in os.listdir(
-                        Path("/logs") / latest_detection / "processed_plates" / category
+                        processed_plates_dir / category
                     )
                     if f.endswith(".log")
                 ]
@@ -97,9 +103,7 @@ def main():
         for category, log_file_list in logs_dict.items():
             for log_file in log_file_list:
                 log_path = (
-                    Path("/logs")
-                    / latest_detection
-                    / "processed_plates"
+                    processed_plates_dir
                     / category
                     / log_file
                 )
@@ -132,9 +136,7 @@ def main():
                 id += 1
                 shutil.move(
                     log_path,
-                    Path("/logs")
-                    / latest_detection
-                    / "posted_plates"
+                    posted_plates_dir
                     / category
                     / log_file,
                 )
