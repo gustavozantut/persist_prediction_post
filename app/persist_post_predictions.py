@@ -27,10 +27,7 @@ def clean_json_file():
     data = {
         "plate_pred": [
             {
-                "id": 0,
-                "date": "",
-                "file": "",
-                "category": "",
+                
                 "version": "",
                 "data_type": "",
                 "epoch_time": "",
@@ -39,6 +36,8 @@ def clean_json_file():
                 "processing_time_ms": "",
                 "regions_of_interest": [],
                 "results": [],
+                "file": "",
+                "category": "",
             }
         ]
     }
@@ -95,7 +94,6 @@ def main():
     while not os.path.exists(pred_files_dir_placa_carro):
         time.sleep(0.5)
 
-    id = 1
     while True:
         logs_dict = {
             categories[0]: [],
@@ -139,7 +137,6 @@ def main():
                     # logging.info("Empty prediction, continuing...")
                     continue
                 # Add the filename to the JSON object
-                log_data["id"] = id
                 log_data["file"] = log_file
                 log_data["category"] = category
 
@@ -147,10 +144,11 @@ def main():
                 response = requests.post(server_url, json=log_data)
                 # logging.info("response:",response)
                 while not response.ok:
-                    # Move the file to the posted directory if the post was successful
+                    
                     response = requests.post(server_url, json=log_data)
                     # logging.info("response:",response)
-                id += 1
+                    
+                # Move the file to the posted directory if the post was successful    
                 shutil.move(
                     log_path,
                     posted_plates_dir / category / log_file,
