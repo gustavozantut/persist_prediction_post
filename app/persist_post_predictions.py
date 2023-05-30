@@ -27,7 +27,6 @@ def clean_json_file():
     data = {
         "plate_pred": [
             {
-                
                 "version": "",
                 "data_type": "",
                 "epoch_time": "",
