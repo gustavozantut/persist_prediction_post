@@ -181,9 +181,6 @@ def main():
                 log_data["file"] = log_file
                 log_data["category"] = category
 
-                #publish plate to kafka
-                producer.send(TOPIC_NAME, value=log_data.encode('utf-8')).get()
-
                 # Post the JSON object to the server
                 response = requests.post(server_url, json=log_data)
                 # logging.info("response:",response)
@@ -197,6 +194,9 @@ def main():
                     log_path,
                     posted_plates_dir / category / log_file,
                 )
+                
+                #publish plate to kafka
+                producer.send(TOPIC_NAME, value=log_data.encode('utf-8')).get()
 
 
 if __name__ == "__main__":
