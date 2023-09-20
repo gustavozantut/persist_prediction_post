@@ -10,7 +10,7 @@ from datetime import datetime
 from kafka import KafkaProducer
 from confluent_kafka.admin import AdminClient, NewTopic
 
-BOOTSTRAP_SERVERS = "192.168.0.101:9092,192.168.14.2:9092,192.168.14.2:9093"
+BOOTSTRAP_SERVERS = "192.168.0.101:9092"
 start_time = (
     str(datetime.now())
     .replace(" ", "")
