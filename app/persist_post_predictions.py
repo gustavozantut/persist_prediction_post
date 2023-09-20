@@ -19,6 +19,8 @@ start_time = (
     .replace("-", "")
 )
 
+TOPIC_NAME = "plate_detector"
+
 def create_kafka_topic():
     # cleaned timestamp
 
@@ -27,7 +29,7 @@ def create_kafka_topic():
 
     # Define topic configuration
     topic_config = {
-        "topic": "plate_detector",
+        "topic": TOPIC_NAME,
         "partitions": 1,
         "replication.factor": 3,  # Set the desired replication factor
         "config": {
@@ -180,7 +182,7 @@ def main():
                 log_data["category"] = category
 
                 #publish plate to kafka
-                producer.send("plate_detector", value=log_data.encode('utf-8')).get()
+                producer.send(TOPIC_NAME, value=log_data.encode('utf-8')).get()
 
                 # Post the JSON object to the server
                 response = requests.post(server_url, json=log_data)
