@@ -7,21 +7,58 @@ import shutil
 from json.decoder import JSONDecodeError
 import logging
 from datetime import datetime
+from kafka import KafkaProducer
+from confluent_kafka.admin import AdminClient, NewTopic
 
+BOOTSTRAP_SERVERS = "192.168.0.101:9092,192.168.14.2:9092,192.168.14.2:9093"
+start_time = (
+    str(datetime.now())
+    .replace(" ", "")
+    .replace(":", "")
+    .replace(".", "")
+    .replace("-", "")
+)
+
+def create_kafka_topic():
+    # cleaned timestamp
+
+    # Create an AdminClient instance
+    admin_client = AdminClient({"bootstrap.servers": BOOTSTRAP_SERVERS})
+
+    # Define topic configuration
+    topic_config = {
+        "topic": f"plate_detector_{start_time}",
+        "partitions": 1,
+        "replication.factor": 3,  # Set the desired replication factor
+        "config": {
+            "min.insync.replicas": 2  # Set the desired minimum in-sync replicas
+        }
+    }
+
+    # Create a NewTopic instance
+    new_topic = NewTopic(
+        topic_config["topic"],
+        num_partitions=topic_config["partitions"],
+        replication_factor=topic_config["replication.factor"],
+        config={
+            "min.insync.replicas": str(topic_config["config"]["min.insync.replicas"])
+        }
+    )
+    # Create the topic
+    admin_client.create_topics([new_topic])
+
+def start_kafka_producer():
+    producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS, acks='all')
+    while not producer:
+        time.sleep(5)
+        producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS, acks='all')
+        print("Trying to create producer")
+    return producer
 
 def clean_json_file():
     """This function renames the actual json_file(json-server's file's source for the posted plates predictions)
     to it's version(datetime stamp) name and creates a new json source file with the prediction format.
     """
-
-    # cleaned timestamp
-    now = (
-        str(datetime.now())
-        .replace(" ", "")
-        .replace(":", "")
-        .replace(".", "")
-        .replace("-", "")
-    )
 
     # json structure
     data = {
@@ -45,7 +82,7 @@ def clean_json_file():
     # move last json source
     shutil.move(
         "/json_source/db.json",
-        f"/json_source/db_{now}.json",
+        f"/json_source/db_{start_time}.json",
     )
 
     # create new json source
@@ -64,6 +101,8 @@ def main():
 
     detect_dir = Path("/detect")
     old_det_dir = detect_dir / "old"
+    create_kafka_topic()
+    producer = start_kafka_producer()
     while not [
         item
         for item in detect_dir.glob("*")
@@ -139,6 +178,9 @@ def main():
                 # Add the filename to the JSON object
                 log_data["file"] = log_file
                 log_data["category"] = category
+
+                #publish plate to kafka
+                producer.send("start_time", value=log_data.encode('utf-8')).get()
 
                 # Post the JSON object to the server
                 response = requests.post(server_url, json=log_data)
