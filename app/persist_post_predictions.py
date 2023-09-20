@@ -26,7 +26,8 @@ def clean_json_file():
     # json structure
     data = {
         "plate_pred": [
-            {
+            {   
+                "id": "",
                 "version": "",
                 "data_type": "",
                 "epoch_time": "",
