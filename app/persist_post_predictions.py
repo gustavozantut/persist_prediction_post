@@ -9,8 +9,9 @@ import logging
 from datetime import datetime
 from kafka import KafkaProducer
 from confluent_kafka.admin import AdminClient, NewTopic
+from kafka.errors import KafkaError
 
-BOOTSTRAP_SERVERS = "192.168.0.101:9092"
+BOOTSTRAP_SERVERS = "192.168.0.101:9092,192.168.14.2:9092,192.168.14.2:9093"
 start_time = (
     str(datetime.now())
     .replace(" ", "")
@@ -20,6 +21,28 @@ start_time = (
 )
 
 TOPIC_NAME = "plate_detector"
+
+def configure_logging():
+    # Create a logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    # Create a formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # Create a file handler
+    file_handler = logging.FileHandler('app.log')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+
+    # Create a console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(formatter)
+
+    # Add the handlers to the logger
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
 def create_kafka_topic():
     # cleaned timestamp
@@ -48,14 +71,6 @@ def create_kafka_topic():
     )
     # Create the topic
     admin_client.create_topics([new_topic])
-
-def start_kafka_producer():
-    producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS, acks='all')
-    while not producer:
-        time.sleep(5)
-        producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS, acks='all')
-        print("Trying to create producer")
-    return producer
 
 def clean_json_file():
     """This function renames the actual json_file(json-server's file's source for the posted plates predictions)
@@ -93,7 +108,12 @@ def clean_json_file():
 
 
 def main():
-    server_url = "http://json_server/plate_pred"
+    
+    producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,\
+            acks=1,retries=15)
+    
+    server_url = "http://host.docker.internal/plate_pred"
+    
     categories = [
         "placa_carro",
         "placa_carro_mercosul",
@@ -103,8 +123,7 @@ def main():
 
     detect_dir = Path("/detect")
     old_det_dir = detect_dir / "old"
-    create_kafka_topic()
-    producer = start_kafka_producer()
+
     while not [
         item
         for item in detect_dir.glob("*")
@@ -159,7 +178,7 @@ def main():
         for category, log_file_list in logs_dict.items():
             for log_file in log_file_list:
                 log_path = processed_plates_dir / category / log_file
-                logging.info(log_path)
+                #logging.info(log_path)
 
                 # Read the contents of the log file as a JSON object
                 try:
@@ -195,11 +214,13 @@ def main():
                     posted_plates_dir / category / log_file,
                 )
                 
-                #publish plate to kafka
-                producer.send(TOPIC_NAME, value=log_data.encode('utf-8')).get()
-
-
+                producer.send(TOPIC_NAME, value=json.dumps(log_data).encode('utf-8')).get()
+                producer.flush()
+                logging.info(f"Published file: {log_file}!")
+                                    
 if __name__ == "__main__":
     clean_json_file()
+    create_kafka_topic()
+    configure_logging()
     time.sleep(5)
     main()
