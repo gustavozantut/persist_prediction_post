@@ -242,6 +242,8 @@ def main():
                         
                     except:
                         
+                        create_kafka_topic()
+                        
                         pass
                 
                 logging.info(f"file: {log_file} sent to kafka!")
