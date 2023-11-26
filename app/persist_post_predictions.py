@@ -119,6 +119,7 @@ def main():
             
             producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,\
                     acks='all')
+            producer_on = True
         
         except:
             
@@ -235,6 +236,7 @@ def main():
                     try:
                         
                         producer.send(TOPIC_NAME, value=json.dumps(log_data).encode('utf-8')).get()
+                        producer.flush()
                         msg_sent = True
                         
                     except:
