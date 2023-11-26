@@ -235,6 +235,7 @@ def main():
                     
                     try:
                         
+                        producer.flush()
                         producer.send(TOPIC_NAME, value=json.dumps(log_data).encode('utf-8')).get()
                         producer.flush()
                         msg_sent = True
