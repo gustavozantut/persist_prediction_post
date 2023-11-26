@@ -109,8 +109,20 @@ def clean_json_file():
 
 def main():
     
-    producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,\
-            acks=1,retries=15)
+    logging.info("Reaching for kafka...")
+    
+    producer_on = False
+    
+    while not producer_on:
+        
+        try:
+            
+            producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,\
+                    acks='all')
+        
+        except:
+            
+            pass
     
     server_url = "http://host.docker.internal/plate_pred"
     
@@ -207,16 +219,29 @@ def main():
                     
                     response = requests.post(server_url, json=log_data)
                     # logging.info("response:",response)
-                    
+                
+                logging.info(f"file: {log_file} posted to json server!")
+                
                 # Move the file to the posted directory if the post was successful    
                 shutil.move(
                     log_path,
                     posted_plates_dir / category / log_file,
                 )
                 
-                producer.send(TOPIC_NAME, value=json.dumps(log_data).encode('utf-8')).get()
-                producer.flush()
-                logging.info(f"Published file: {log_file}!")
+                msg_sent = False
+                
+                while not msg_sent:
+                    
+                    try:
+                        
+                        producer.send(TOPIC_NAME, value=json.dumps(log_data).encode('utf-8')).get()
+                        msg_sent = True
+                        
+                    except:
+                        
+                        pass
+                
+                logging.info(f"file: {log_file} sent to kafka!")
                                     
 if __name__ == "__main__":
     clean_json_file()
