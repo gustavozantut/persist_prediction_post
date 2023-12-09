@@ -1,5 +1,3 @@
 requests
 kafka-python
 confluent_kafka
-RPLCD
-gpiozero
