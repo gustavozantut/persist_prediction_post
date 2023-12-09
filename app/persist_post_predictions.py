@@ -9,7 +9,8 @@ import logging
 from datetime import datetime
 from kafka import KafkaProducer
 from confluent_kafka.admin import AdminClient, NewTopic
-from kafka.errors import KafkaError
+from RPLCD.i2c import CharLCD
+import RPi.GPIO as GPIO
 
 BOOTSTRAP_SERVERS = "192.168.0.101:9092,192.168.14.2:9092,192.168.14.2:9093"
 start_time = (
@@ -21,6 +22,9 @@ start_time = (
 )
 
 TOPIC_NAME = "plate_detector"
+
+# Initialize LCD
+lcd = CharLCD(i2c_expander='PCF8574', address=0x27, port=1, cols=16, rows=2, backlight_enabled=True)
 
 def configure_logging():
     # Create a logger
@@ -212,6 +216,10 @@ def main():
                 # Add the filename to the JSON object
                 log_data["file"] = log_file
                 log_data["category"] = category
+                
+                GPIO.cleanup()
+                plate = log_data["results"]["plate"]
+                lcd.write_string(plate)
 
                 # Post the JSON object to the server
                 response = requests.post(server_url, json=log_data)
