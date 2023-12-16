@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 from json.decoder import JSONDecodeError
 import logging
+from collections import deque
 from datetime import datetime
 from kafka import KafkaProducer
 from PIL import Image, ImageDraw, ImageFont
@@ -22,6 +23,8 @@ start_time = (
 )
 
 TOPIC_NAME = "plate_detector"
+
+last_frames = deque(maxlen=15)
 
 def configure_logging():
     # Create a logger
@@ -249,18 +252,24 @@ def main():
                 
                 logging.info(f"file: {log_file} sent to kafka!")
                 
-                logging.info(f"writting plate: {log_file} to frame!")
                 plate = log_data["results"][0]["plate"]
+                logging.info(f"writting plate: {plate} to frame!")
                 frames_dir = Path("/detect") / latest_detection / "frames"
                 frame_name = log_file.split("_")[0]
                 image_path = frames_dir / (frame_name + ".png")
                 image = Image.open(image_path)
                 draw = ImageDraw.Draw(image)
-                font = ImageFont.load_default()
-                position = (10, 10)
-                text_color = "red"
-                draw.text(position, plate, fill=text_color, font=font)
+                font = ImageFont.load_default(size=40)
+                image_width, image_height = image.size
+                original_center_position = ((image_width - 40) // 2, image_height - 45 - 50)
+                shift = 100 if frame_name not in last_frames else -100
+                new_position = (original_center_position[0] - shift, original_center_position[1]) 
+                text_color = "black"
+                bbox = draw.textbbox(new_position, plate, font=font)
+                draw.rectangle(bbox, fill="red")
+                draw.text(new_position, plate, font=font, fill=text_color)
                 image.save(image_path)
+                last_frames.append(frame_name)
                 logging.info(f"written!")
                 
                                     
