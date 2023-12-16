@@ -262,7 +262,7 @@ def main():
                 font = ImageFont.load_default(size=40)
                 image_width, image_height = image.size
                 original_center_position = ((image_width - 40) // 2, image_height - 45 - 50)
-                shift = 100 if frame_name not in last_frames else -100
+                shift = 200 if frame_name not in last_frames else -200
                 new_position = (original_center_position[0] - shift, original_center_position[1]) 
                 text_color = "black"
                 bbox = draw.textbbox(new_position, plate, font=font)
