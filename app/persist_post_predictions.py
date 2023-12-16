@@ -1,6 +1,7 @@
 import json
 import requests
 import os
+
 import time
 from pathlib import Path
 import shutil
@@ -8,6 +9,7 @@ from json.decoder import JSONDecodeError
 import logging
 from datetime import datetime
 from kafka import KafkaProducer
+from PIL import Image, ImageDraw, ImageFont
 from confluent_kafka.admin import AdminClient, NewTopic
 
 BOOTSTRAP_SERVERS = "192.168.0.101:9092,192.168.14.2:9092,192.168.14.2:9093"
@@ -246,6 +248,21 @@ def main():
                         pass
                 
                 logging.info(f"file: {log_file} sent to kafka!")
+                
+                logging.info(f"writting plate: {log_file} to frame!")
+                plate = log_data["results"][0]["plate"]
+                frames_dir = Path("/detect") / latest_detection / "frames"
+                frame_name = log_file.split("_")[0]
+                image_path = frames_dir / (frame_name + ".png")
+                image = Image.open(image_path)
+                draw = ImageDraw.Draw(image)
+                font = ImageFont.load_default()
+                position = (10, 10)
+                text_color = "red"
+                draw.text(position, plate, fill=text_color, font=font)
+                image.save(image_path)
+                logging.info(f"written!")
+                
                                     
 if __name__ == "__main__":
     clean_json_file()
