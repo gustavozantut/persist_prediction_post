@@ -21,12 +21,20 @@ start_time = (
     .replace(".", "")
     .replace("-", "")
 )
-
 TOPIC_NAME = "plate_detector"
-
 last_frames = deque(maxlen=15)
+server_url = "http://host.docker.internal/plate_pred"
+categories = [
+    "placa_carro",
+    "placa_carro_mercosul",
+    "placa_moto",
+    "placa_moto_mercosul",
+]
+detect_dir = Path("/detect")
+old_det_dir = detect_dir / "old"
 
 def configure_logging():
+    
     # Create a logger
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
@@ -49,7 +57,6 @@ def configure_logging():
     logger.addHandler(console_handler)
 
 def create_kafka_topic():
-    # cleaned timestamp
 
     # Create an AdminClient instance
     admin_client = AdminClient({"bootstrap.servers": BOOTSTRAP_SERVERS})
@@ -110,6 +117,34 @@ def clean_json_file():
     with open("/json_source/db.json", "w") as f:
         json.dump(data, f)
 
+def get_latest_detectiion_folder_name(detect_dir=detect_dir,old_det_dir=old_det_dir):
+    
+    latest_detectiion_folder_name=sorted(
+        [item
+         for item in detect_dir.glob("*")
+         if not os.path.samefile(item, old_det_dir)
+         and not os.path.commonpath([item, old_det_dir]) == old_det_dir
+         ],
+        key=lambda x: x.stat().st_mtime,
+        reverse=True,
+    )[0].name
+    
+    return latest_detectiion_folder_name
+
+def draw_plate_on_img(image_path,frame_name,plate):
+    
+    image = Image.open(image_path)
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default(size=40)
+    image_width, image_height = image.size
+    original_center_position = ((image_width - 40) // 2, image_height - 45 - 50)
+    shift = 200 if frame_name not in last_frames else -200
+    new_position = (original_center_position[0] - shift, original_center_position[1]) 
+    text_color = "black"
+    bbox = draw.textbbox(new_position, plate, font=font)
+    draw.rectangle(bbox, fill="red")
+    draw.text(new_position, plate, font=font, fill=text_color)
+    image.save(image_path)
 
 def main():
     
@@ -128,18 +163,6 @@ def main():
         except:
             
             pass
-    
-    server_url = "http://host.docker.internal/plate_pred"
-    
-    categories = [
-        "placa_carro",
-        "placa_carro_mercosul",
-        "placa_moto",
-        "placa_moto_mercosul",
-    ]
-
-    detect_dir = Path("/detect")
-    old_det_dir = detect_dir / "old"
 
     while not [
         item
@@ -147,31 +170,26 @@ def main():
         if not os.path.samefile(item, old_det_dir)
         and not os.path.commonpath([item, old_det_dir]) == old_det_dir
     ]:
+        
         time.sleep(0.5)
 
-    latest_detection = sorted(
-        [item
-         for item in detect_dir.glob("*")
-         if not os.path.samefile(item, old_det_dir)
-         and not os.path.commonpath([item, old_det_dir]) == old_det_dir
-         ],
-        key=lambda x: x.stat().st_mtime,
-        reverse=True,
-    )[0].name
+    latest_detection = get_latest_detectiion_folder_name()
 
     processed_plates_dir = Path(
         "/logs") / latest_detection / "processed_plates"
     posted_plates_dir = Path("/logs") / latest_detection / "posted_plates"
-
     pred_files_dir_placa_carro = processed_plates_dir / categories[0]
 
     for category in categories:
+        
         os.makedirs(posted_plates_dir / category, exist_ok=True)
 
     while not os.path.exists(pred_files_dir_placa_carro):
+        
         time.sleep(0.5)
 
     while True:
+        
         logs_dict = {
             categories[0]: [],
             categories[1]: [],
@@ -180,6 +198,7 @@ def main():
         }
 
         for category in categories:
+            
             # Get a list of all files in the log directory
             logs_dict[category] = sorted(
                 [
@@ -188,51 +207,55 @@ def main():
                     if f.endswith(".log")
                 ]
             )
-        # logging.info(log_files)
+            
         if not any(logs_dict.values()):
+            
             time.sleep(0.5)
             continue
+        
         for category, log_file_list in logs_dict.items():
+            
             for log_file in log_file_list:
+                
                 log_path = processed_plates_dir / category / log_file
-                #logging.info(log_path)
 
                 # Read the contents of the log file as a JSON object
                 try:
+                    
                     with open(log_path) as f:
+                        
                         log_data = json.load(f)
+                        
                 except JSONDecodeError:
-                    # logging.info(
-                    #    "Invalid JSON data in log file, continuing...")
+
                     continue
+                
                 except FileNotFoundError:
-                    # logging.info("Invalid file, continuing...")
+                    
                     continue
-                # logging.info(log_data['results'])
+
                 if not log_data["results"]:
+                    
                     os.remove(log_path)
-                    # logging.info("Empty prediction, continuing...")
+
                     continue
+                
                 # Add the filename to the JSON object
                 log_data["file"] = log_file
                 log_data["category"] = category
-
                 # Post the JSON object to the server
                 response = requests.post(server_url, json=log_data)
-                # logging.info("response:",response)
+                
                 while not response.ok:
                     
                     response = requests.post(server_url, json=log_data)
                     # logging.info("response:",response)
                 
                 logging.info(f"file: {log_file} posted to json server!")
-                
-                # Move the file to the posted directory if the post was successful    
                 shutil.move(
                     log_path,
                     posted_plates_dir / category / log_file,
                 )
-                
                 msg_sent = False
                 
                 while not msg_sent:
@@ -256,24 +279,13 @@ def main():
                 logging.info(f"writting plate: {plate} to frame!")
                 frames_dir = Path("/detect") / latest_detection / "frames"
                 frame_name = log_file.split("_")[0]
-                image_path = frames_dir / (frame_name + ".png")
-                image = Image.open(image_path)
-                draw = ImageDraw.Draw(image)
-                font = ImageFont.load_default(size=40)
-                image_width, image_height = image.size
-                original_center_position = ((image_width - 40) // 2, image_height - 45 - 50)
-                shift = 200 if frame_name not in last_frames else -200
-                new_position = (original_center_position[0] - shift, original_center_position[1]) 
-                text_color = "black"
-                bbox = draw.textbbox(new_position, plate, font=font)
-                draw.rectangle(bbox, fill="red")
-                draw.text(new_position, plate, font=font, fill=text_color)
-                image.save(image_path)
+                draw_plate_on_img(image_path=frames_dir / (frame_name + ".png"),frame_name=frame_name, plate=plate)
                 last_frames.append(frame_name)
                 logging.info(f"written!")
                 
                                     
 if __name__ == "__main__":
+    
     clean_json_file()
     create_kafka_topic()
     configure_logging()
