@@ -1,8 +1,7 @@
 FROM python:3.11
-WORKDIR /usr/src/app
+RUN git clone https://github.com/gustavozantut/persist_prediction_post /usr/src/app/persist_prediction_post/
+WORKDIR /usr/src/app/persist_prediction_post
 RUN apt-get update
-COPY ./app ./
-COPY requirements.txt ./
-RUN pip install -r requirements.txt
-RUN rm requirements.txt
+RUN pip install -r ./requirements.txt
+RUN rm ./requirements.txt
 ENTRYPOINT ["python", "persist_post_predictions.py"]
