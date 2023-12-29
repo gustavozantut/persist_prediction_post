@@ -23,7 +23,7 @@ start_time = (
 )
 TOPIC_NAME = "plate_detector"
 last_frames = deque(maxlen=15)
-server_url = "http://127.0.0.1/plate_pred"
+server_url = "http://host.docker.internal/plate_pred"
 categories = [
     "placa_carro",
     "placa_carro_mercosul",
